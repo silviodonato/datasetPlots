@@ -4,20 +4,11 @@ from recorded_lumi_fromOMS import recorded_lumi
 minimalSize = -1E-9 #in GB
 minEventSize = 0.2E6 # B
 minEraLumi = 1000.0 # pb-1
-useYearInsteadOfEra = True
+useYearInsteadOfEra = False
 
 datasets_ = set()
 eras_ = set()
 formats_ = set()
-
-
-def vetoedDataset(dataset):
-#    if "Random" in dataset: return True
-#    if "Physics" in dataset: return True
-#    if "Parking" in dataset: return True
-#    if "Zero" in dataset: return True
-#    if dataset == "D": return True ## reject D06
-    return False
 
 def datasetNoSplitting(dataset_name):
     if dataset_name[-1].isdigit(): dataset_name = dataset_name[:-1]
@@ -65,7 +56,7 @@ for dataset in list(summaries.keys()):
         summaries[dataset]["version"] = version
         summaries[dataset]["format"] = format
         summaries[dataset]["event_size"] = summaries[dataset]['file_size']/summaries[dataset]['nevents'] if summaries[dataset]['nevents']>0 else 0
-        if summaries[dataset]["event_size"]>minEventSize and not vetoedDataset(summaries[dataset]["dataset_name"]) and int(summaries[dataset]["year"])>=2017 and summaries[dataset]["recorded_lumi"]>minEraLumi:
+        if summaries[dataset]["event_size"]>minEventSize and int(summaries[dataset]["year"])>=2017 and summaries[dataset]["recorded_lumi"]>minEraLumi:
             datasets_.add(summaries[dataset]["dataset_name"])
             eras_.add(era)
             formats_.add(format)
@@ -125,70 +116,48 @@ mergeDataset = {
 #        "NoBPTX",
 #        "MuonEG",
 #        "ReservedDoubleMuonLowMass",
-        "ScoutingPFMonitor",
+#        "ScoutingPFMonitor",
 #        "Tau",
         "HLTPhysics",
         "MuonShower",
 #        "ZeroBias",
         "ZeroBiasNonColliding",
         "IsolatedBunch",
-        "L1Accept",
-        "MiniDaq",
         "PPRefZeroBias",
         "PPRefDoubleMuon",
         "PPRefExotica",
         "PPRefHardProbes",
         "PPRefSingleMuon",
         "HLTRAWTest",
-        "Parking", ##no idea of what is it, very small
         "RandomTOTEM",
-        "ZeroBiasIsolatedBunches",
         "L1MinimumBias",
-        "ZeroBiasPD",
         "DoubleMuonLowPU",
-        "ParkingHLTPhysics",
-        "ZeroBiasTOTEM",
-        "ParkingHLTPhysicsTrains",
-        "ParkingZeroBiasTrains",
         "JetsTOTEM",
         "SingleTrack",
         "MuonEGammaTOTEM",
         "CommissioningEGamma",
         "CommissioningMuons",
-        "ParkingZeroBias",
         "ScoutingPFCommissioning",
-        "ZeroBias8b4e",
-        "ZeroBiasNominalTrains",
         "CommissioningSingleJet",
         "CommissioningTaus",
         "HFvetoTOTEM",
         "Totem",
         "CommissioningHTT",
         "ScoutingCaloCommissioning",
-        "ParkingL1SingleEGer",
-        "ParkingL1SingleJet",
-        "ParkingL1DoubleEG",
         "CommissioningETM",
-        "ParkingL1SingleMu",
-        "ParkingZeroBiasIndiv",
-        "ParkingL1SingleTau",
-        "ParkingL1HTTer",
         "CommissioningDoubleJet",
-        "ParkingL1DoubleIsoTau",
-        "ParkingL1SingleEG",
-        "ParkingL1TripleMu",
-        "ParkingL1DoubleJet",
-        "ParkingL1DoubleMu",
-        "ParkingCosmicsVirginRaw",
-        "ParkingHLTPhysicsIndiv",
         "TestEnablesEcalHcalDT",
         "EcalLaser",
-        "ParkingL1ETMHF",
-        "VRZeroBias",
         "TestEnablesEcalHcalXeXeTest",
-        "ParkingBPHPromptCSCS",
         "HighPtLowerPhotons",
         "L1AcceptXeXeTest",
+
+        "ZeroBiasPD",
+        "ZeroBias8b4e",
+        "ZeroBiasNominalTrains",
+        "ZeroBiasIsolatedBunches",
+        "VRZeroBias",
+
     ],
     "HIon" : [
         "HIDoubleMuon",
@@ -225,57 +194,91 @@ mergeDataset = {
         "HINPFJets",
         "HITestVR",
         "HIZeroBias",
-        "ParkingHIZeroBias",
         "RateTestHI",
-        "HIon",
         "HeavyFlavor",
+        "ScoutingMonitor",
         
     ],
     "Scouting" : [
         "ScoutingPFRun",
+        "ScoutingCaloMuon",
         "ScoutingPFMuon",
         "ScoutingCaloHT",
         "ScoutingPFHT",
     ],
-    "Special" : [
-        "SpecialHLTPhysics",
-        "SpecialZeroBias",
-        "SpecialRandom",
-    ],
-    "Parking" : [
-        "Parking",
-        "ParkingDoubleElectronLowMass",
-        "ParkingSingleMuon",
-        "ParkingDoubleMuonLowMass",
-        "ParkingHH",
-        "ParkingLLP",
-        "ParkingVBF",
-        "ParkingHT",
-        "ParkingBPH", ##2018
-        "ParkingHLTPhysics",
-        "ParkingMuon",
+    "Other Parking" : [
+        "ParkingHLTPhysicsTrains",
+        "ParkingZeroBiasTrains",
         "ParkingZeroBias",
-        "ParkingScoutingMonitor",
+        "ParkingL1SingleEGer",
+        "ParkingL1SingleJet",
+        "ParkingL1DoubleEG",
+        "ParkingL1SingleMu",
+        "ParkingZeroBiasIndiv",
+        "ParkingL1SingleTau",
+        "ParkingL1HTTer",
+        "ParkingL1DoubleIsoTau",
+        "ParkingL1SingleEG",
+        "ParkingL1TripleMu",
+        "ParkingL1DoubleJet",
+        "ParkingL1DoubleMu",
         "ParkingCosmicsVirginRaw",
+        "ParkingHLTPhysicsIndiv",
+        "ParkingL1ETMHF",
+        "ParkingBPHPromptCSCS",
+        "ParkingHIZeroBias",
+        "ParkingHT",
+        "ParkingHLTPhysics",
+        "ParkingScoutingMonitor",
+        "ParkingL1MinimumBias",
     ],
+#    "Parking" : [
+#        "ParkingHLTPhysicsTrains",
+#        "ParkingZeroBiasTrains",
+#        "ParkingZeroBias",
+#        "ParkingL1SingleEGer",
+#        "ParkingL1SingleJet",
+#        "ParkingL1DoubleEG",
+#        "ParkingL1SingleMu",
+#        "ParkingZeroBiasIndiv",
+#        "ParkingL1SingleTau",
+#        "ParkingL1HTTer",
+#        "ParkingL1DoubleIsoTau",
+#        "ParkingL1SingleEG",
+#        "ParkingL1TripleMu",
+#        "ParkingL1DoubleJet",
+#        "ParkingL1DoubleMu",
+#        "ParkingCosmicsVirginRaw",
+#        "ParkingHLTPhysicsIndiv",
+#        "ParkingL1ETMHF",
+#        "ParkingBPHPromptCSCS",
+#        "ParkingHIZeroBias",
+#        "ParkingDoubleElectronLowMass",
+#        "ParkingSingleMuon",
+#        "ParkingDoubleMuonLowMass",
+#        "ParkingHH",
+#        "ParkingLLP",
+#        "ParkingVBF",
+#        "ParkingHT",
+#        "ParkingBPH", ##2018
+#        "ParkingHLTPhysics",
+#        "ParkingMuon",
+#        "ParkingScoutingMonitor",
+#        "ParkingL1MinimumBias",
+#    ],
     "JetMET" : [
-        "JetMET",
         "JetHT",
+        "HTMHT",
         "MET",
         "BTagCSV",
     ],
-    "Ephemeral" : [
-        "EphemeralHLTPhysics",
-        "EphemeralZeroBias",
-    ],
     "Muon" : [
-        "Muon",
         "SingleMuon",
         "DoubleMuon",
         "MuonEG",
     ],
     "EGamma" : [
-        "EGamma",
+        "SingleElectron",
         "SinglePhoton",
         "DoubleEG",
     ],
@@ -295,18 +298,38 @@ mergeDataset = {
         "AlCaLumiPixelsXeXeTest",
         "ALCAP",
         "AlCaLumiPixels",
-        "ALCA",
         "ExpressAlignment",
     ],
-    "ZeroBias" : [
-        "ZeroBias",
-        "ZeroBiasPD",
-        "ZeroBias8b4e",
-        "ZeroBiasNominalTrains",
-        "ZeroBiasIsolatedBunches",
-        "VRZeroBias",
-    ],
+#    "ZeroBias" : [
+#        "ZeroBiasPD",
+#        "ZeroBias8b4e",
+#        "ZeroBiasNominalTrains",
+#        "ZeroBiasIsolatedBunches",
+#        "VRZeroBias",
+#    ],
+#    "Ephemeral" : [
+#        "EphemeralHLTPhysics",
+#        "EphemeralZeroBias",
+#    ],
+#    "Special" : [
+#        "SpecialHLTPhysics",
+#        "SpecialZeroBias",
+#        "SpecialRandom",
+#    ],
     "ToBeRemoved" : [
+        
+        ## ZeroBias
+        "ZeroBias",
+        
+        ## Ephemeral
+        "EphemeralHLTPhysics",
+        "EphemeralZeroBias",
+        
+        ## Special
+        "SpecialHLTPhysics",
+        "SpecialZeroBias",
+        "SpecialRandom",
+        
         "D",
         "ParkingDoubleElectronLowMass-Error",
         "EGamma-Error",
@@ -347,11 +370,23 @@ mergeDataset = {
     ],
 }
 
+### Sanity check in mergeDataset
+check = set()
+for d in mergeDataset.keys():
+    if not d in check: check.add(d)
+    else: raise Exception("Duplicated dataset %s"%d)
+
+for dd in mergeDataset.values():
+    for d in dd:
+        if not d in check: check.add(d)
+        else: raise Exception("Duplicated dataset %s"%d)
+
 def getVariable(summary, var):
     if var=='rate_2E34': return summary['nevents']/(summary['recorded_lumi']*1E36/2E34) if summary['recorded_lumi'] else 0
     elif var=='xsect': return summary['nevents']/(summary['recorded_lumi']*1E-3) if summary['recorded_lumi'] else 0
     elif var=='rate': return summary['nevents']/(summary['duration']) if summary['duration'] else 0
     elif var=='data': return summary['file_size']/1E15
+    elif var=='dataPerLumi': return summary['file_size']/1E15/(summary['recorded_lumi']/1E3)
     elif var=='events': return summary['nevents']/1E9
     elif var=='aveLumi': 
         if summary["dataset_name"]=="Tau": return summary['recorded_lumi']*1E36/summary['duration']
@@ -369,6 +404,7 @@ def getLabel(var):
     elif var=='xsect': return "Average trigger cross section [fb]"
     elif var=='rate': return "Average trigger rate [Hz]"
     elif var=='data': return "Total data [PB]"
+    elif var=='dataPerLumi': return "Total data per integ. lumi[PB/fb-1]"
     elif var=='events': return "Total events [B]"
     elif var=='aveLumi': return "Average instantaneous lumi [cm-2s-1]"
     elif var=='intLumi': return "Total integrated lumi [fb-1]"
@@ -387,7 +423,8 @@ def getLabel(var):
 #var = 'data'
 var = 'events'
 #for var in ['xsect', 'rate_2E34', 'rate', 'data', 'events']:
-for var in ['rate', 'aveLumi', 'intLumi', 'duration', 'xsect', 'rate_2E34', 'rate', 'data', 'events']:
+#for var in ['rate', 'aveLumi', 'intLumi', 'duration', 'xsect', 'rate_2E34', 'rate', 'data', 'events', 'dataPerLumi']:
+for var in ['xsect']:
     eras = sortEras(eras_)
     datasets = sortDatasets(datasets_, summaries)
 
@@ -407,20 +444,15 @@ for var in ['rate', 'aveLumi', 'intLumi', 'duration', 'xsect', 'rate_2E34', 'rat
             print(summary['dataset_name'], summary['era'], summary['file_size'])
 
     for merge in mergeDataset:
-        dataset_sizes[merge] = dataset_size.Clone(merge)
-        datasets.append(merge)
+        if not merge in dataset_sizes:
+            dataset_sizes[merge] = dataset_size.Clone(merge)
+            datasets.append(merge)
         for tobemerged in mergeDataset[merge]:
             if tobemerged in dataset_sizes:
                 dataset_sizes[merge].Add(dataset_sizes[tobemerged])
                 if tobemerged in datasets: datasets.remove(tobemerged)
-  
-    if "Ephemeral" in datasets: datasets.remove("Ephemeral")
-    if "ZeroBias" in datasets: datasets.remove("ZeroBias")
-    if "Special" in datasets: datasets.remove("Special")
+
     if "ToBeRemoved" in datasets: datasets.remove("ToBeRemoved")
-    #print(dataset_sizes["Ephemeral"])
-    #del dataset_sizes["Ephemeral"]
-    #del dataset_sizes["ZeroBias"]
 
     ##sort by size
     print("________________________________")
@@ -438,7 +470,7 @@ for var in ['rate', 'aveLumi', 'intLumi', 'duration', 'xsect', 'rate_2E34', 'rat
     #dataset_sizes[datasets[0]].Draw()
 
     ## build stack
-    leg = ROOT.TLegend(0.6,0.7,0.85,0.9)
+    leg = ROOT.TLegend(0.12,0.55,0.35,0.88)
     #leg.SetHeader("")
     stack = ROOT.THStack("stack", "")
     for i in range(len(datasets)):
@@ -459,6 +491,7 @@ for var in ['rate', 'aveLumi', 'intLumi', 'duration', 'xsect', 'rate_2E34', 'rat
     #    canvas.Update()
 
     stack.Draw("HIST")
+    stack.SetMaximum(stack.GetMaximum()*1.6)
     stack.GetXaxis().SetTitle("Eras")
     stack.GetYaxis().SetTitle(getLabel(var))
     leg.Draw()
