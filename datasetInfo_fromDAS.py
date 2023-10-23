@@ -8862,3 +8862,14 @@ summaries = {
 ,"/ppForward/Run2015E-v1/RAW" : 
 [{"file_size":6287849069868,"max_ldate":1448487732,"median_cdate":null,"median_ldate":1448330147,"nblocks":11,"nevents":61828462,"nfiles":974,"nlumis":7088,"num_block":11,"num_event":61828462,"num_file":974,"num_lumi":7088}]
 ,}
+
+
+eras = set()
+for a in summaries:
+  if "/Commissioning/" in a:
+    era = a.split("/")[2].split("-")[0]
+    if not era in eras:
+        eras.add(era)
+    else:
+        print(a)
+
