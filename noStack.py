@@ -9,7 +9,7 @@ ROOTbatch = False
 ROOTbatch = True
 ROOT.gROOT.SetBatch(ROOTbatch)
 
-fName = "plot_main_year_rate.root"
+fName = "plot_main/plot_main_era_rate.root"
 
 f = ROOT.TFile.Open(fName)
 
@@ -63,6 +63,7 @@ def convertToGraph(histo):
 hists["PromptParking"] = hists["Prompt"].Clone("PromptParking")
 hists["PromptParking"].Add(hists["Parking"])
 hists["PromptParking"].SetMaximum(hists["PromptParking"].GetMaximum()*1.2)
+hists["PromptParking"].SetMinimum(0)
 
 for histName in hists:
     histo = hists[histName]
@@ -116,7 +117,6 @@ scoutingAxis.SetTitleFont(hists["Scouting"].GetYaxis().GetTitleFont())
 scoutingAxis.SetTitleSize(hists["Scouting"].GetYaxis().GetTitleSize())
 scoutingAxis.SetTitleOffset(hists["Scouting"].GetYaxis().GetTitleOffset())
 scoutingAxis.SetLabelSize(hists["Scouting"].GetYaxis().GetLabelSize())
-
 
 hists["PromptParking"].Draw("L HIST P")
 

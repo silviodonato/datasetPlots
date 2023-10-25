@@ -1,12 +1,73 @@
 from datasetInfo_fromDAS import summaries
 from recorded_lumi_fromOMS import recorded_lumi
 from copy import copy
+from mergeDataset import mergeDataset
+
+directoryPlot = "plot"
+vars =  ['rate', 'aveLumi', 'intLumi', 'duration', 'xsect', 'rate_2E34', 'data', 'events', 'dataPerLumi', 'dataPerTime']
+groups = ["main","lumi"]+list(mergeDataset)
+
+groupsToBeRemoved = []
+
+removeEras = [ ##https://cmsoms.cern.ch/cms/fills/summary?cms_era_name=2015E
+##    "Run2018D", ## HIon test only in
+##    "Run2015A", ## HIon test ? only in 247584 - 247934. See run #247702, low PU fill, fill 3851, LHCf run https://schwick.web.cern.ch/schwick/rctools/dailyReport/detailReport/display/2015-06-12 
+    "Run2013A", ## 2.76 TeV https://cmsoms.cern.ch/cms/fills/summary?cms_era_name=2013A
+    "Run2015A", ## data taken at 0T, including commissioning runs and low-PU runs for FSQ physics. https://twiki.cern.ch/twiki/bin/viewauth/CMS/PdmV2015Analysis
+    "Run2015E",  ## Run 261380 - 261553. No beams.
+    "Run2017H", ## low PU SMP "W mass" (fill 6413)
+    "Run2017G", ## 5 TeV
+    "Run2018E", ## solo un fill (7358) ad altissimo PU (108.128)
+    "Run2022A", ## 500 GeV collisions
+    "Run2023F", ## High Beta*
+#    "Run2022B", ## ok, ramp up
+#    "Run2017A", ## ok, ramp up
+#    "Run2015B", ## two fills with B=0
+#    "Run2015C", ## many fills with B=0
+
+
+## HIRateRest 322729 (no collisions)
+## RateTestHI 322763 and 322800 (no collisions)
+]
+
+#groups = ["main","lumi","Prompt"]
+
+#groups = ["main","lumi","Prompt","Parking", "Scouting"]
+#groups = ["Prompt","Scouting","Parking"]
+groupsToBeRemoved = [
+#    "ZeroBias",
+#    "AlCa",
+#    "Reserved",
+#    "HIon",
+#    "ToBeRemoved",
+#    "SmallEventContent",
+#    "TOTEM",
+#    "NoCollisions",
+#    "DAQTest",
+#    "Errors",
+#    "lumi",
+#    "Fake",
+#    "Others",
+#    "Parking",
+#    "Scouting",
+#    "Prompt",
+]
+#groupsToBeRemoved = []
+
+
+#vars =  ['aveLumi','rate']
+#vars =  ['dataPerLumi','data']
+
+#groups = ["HIon"]
+#vars =  ['data']
+
 
 minimalSize = 0 #in GB
-minEventSize = 1000 # B
-minEraLumi = 1000 # pb-1
-useYearInsteadOfEra = True
+minEventSize = 0 # B
+minEraLumi = 1 # pb-1
+#useYearInsteadOfEra = True
 #useYearInsteadOfEra = False
+#ROOTbatch = False
 ROOTbatch = True
 
 def datasetNoSplitting(dataset_name):
@@ -31,6 +92,25 @@ def sortDatasets(datasets, summaries):
 #    sorted_datasets = sorted(sorted_datasets, key=lambda val: not "Prompt" in val)
     return sorted_datasets
 
+def savePy(stack, outName):
+    out = open(outName, 'w')
+    hist = stack.GetHists()
+    ax = stack.GetXaxis()
+    outText = "## %s %s %s %s\n"%(stack.GetName(),stack.GetTitle(),stack.GetXaxis().GetTitle(),stack.GetYaxis().GetTitle())
+    outText += "plot = {\n"
+    for b in range(1, ax.GetNbins()+1):
+        outText += '    "%s" : {\n'%ax.GetBinLabel(b)
+        bins = {}
+        for hist in stack.GetHists():
+            if hist.GetBinContent(b)>0:
+                bins[hist.GetName()] = hist.GetBinContent(b)
+        for (bin, value) in sorted(bins.items(), key=lambda x:x[1], reverse=True):
+            outText += '        "%s" : %f,\n'%(bin, value)
+        outText += '    },\n'
+    outText += "}"
+    out.write(outText)
+    out.close()
+
 ## change format and drop small datasets
 for dataset in list(summaries.keys()):
     if summaries[dataset][0]['file_size']/1E9> minimalSize:
@@ -50,7 +130,7 @@ for dataset in list(summaries.keys()):
         else:
             print(era, " not found in recorded_lumi.")
             eraLumi = None
-        if eraLumi:
+        if eraLumi and not (era in removeEras):
             summaries[dataset]["delivered_lumi"], summaries[dataset]["recorded_lumi"], summaries[dataset]["duration"] = recorded_lumi[eraLumi][0], recorded_lumi[eraLumi][1], recorded_lumi[eraLumi][2]
         else:
             summaries[dataset]["delivered_lumi"] = 0
@@ -75,21 +155,37 @@ def getDatasetEras(summaries):
         if summaries[dataset]["event_size"]>minEventSize and int(summaries[dataset]["year"])>=2011 and summaries[dataset]["recorded_lumi"]>minEraLumi:
             datasets_.add(summaries[dataset]["dataset_name"])
             eras_.add(summaries[dataset]["era"])
-    if "Run2015E" in eras_: 
-        eras_.remove("Run2015E")
-        print("Removing Run2015E")
+    for removeEra in removeEras:
+        if removeEra in eras_: 
+            eras_.remove(removeEra) ## 261380 - 261553. No stable beams. Test 5 TeV
+            print("Removing %s"%removeEra)
+
     return datasets_, eras_
+
+def mergeSummariesInYears(summaries):
+    mergedSummaries = {}
+    for summary in summaries.values():
+        key = (summary["dataset_name"], summary["year"], summary["format"])
+        if not (key in mergedSummaries.keys()): mergedSummaries[key] = copy(summary)
+        else:
+            for el in ["file_size", "delivered_lumi", "recorded_lumi", "duration", "nevents", "nlumis", "nblocks", "nfiles", "num_block", "num_lumi"]:
+                if el == "recorded_lumi" and "EmptyBX" in key[0] and "2023" in key[1]:
+#                    print(key, mergedSummaries[key][el], summary[el])
+                    pass
+                mergedSummaries[key][el] += summary[el]
+        mergedSummaries[key]["era"] = copy(summary["year"])
+    return mergedSummaries
 
 ##################################################
 #Add fake dataset
 datasets_, eras_ = getDatasetEras(summaries)
 
 for era in eras_:
-    dataset = "Fake"+era
+    dataset = "/Fake/%s/RAW"%era
     summaries[dataset] = {}
     summaries[dataset]["era"] = era
     summaries[dataset]["year"] = era[3:-1]
-    summaries[dataset]["full_dataset_name"] = "Fake"
+    summaries[dataset]["full_dataset_name"] = dataset
     summaries[dataset]["dataset_name"] = "Fake"
     summaries[dataset]["format"] = "RAW"
     summaries[dataset]["event_size"] = 1E6
@@ -111,21 +207,11 @@ for era in eras_:
         summaries[dataset]["recorded_lumi"] = 1E9
         summaries[dataset]["duration"] = 1E-9
         del summaries[dataset]
+mergeDataset["lumi"] = ["Fake"]
+#datasets_.add("Fake")
+#datasets_, eras_ = getDatasetEras(summaries)
 
 ######################################################################
-
-def mergeSummariesInYears(summaries):
-    mergedSummaries = {}
-    for summary in summaries.values():
-        key = (summary["dataset_name"], summary["year"], summary["format"])
-        if not (key in mergedSummaries.keys()): mergedSummaries[key] = copy(summary)
-        else:
-            for el in ["file_size", "delivered_lumi", "recorded_lumi", "duration", "nevents", "nlumis", "nblocks", "nfiles", "num_block", "num_lumi"]:
-                if el == "recorded_lumi" and "EmptyBX" in key[0] and "2023" in key[1]:
-                    print(key, mergedSummaries[key][el], summary[el])
-                mergedSummaries[key][el] += summary[el]
-        mergedSummaries[key]["era"] = copy(summary["year"])
-    return mergedSummaries
 
 
 #tot = 0
@@ -136,10 +222,9 @@ def mergeSummariesInYears(summaries):
 #        tot += summaries[i]['duration']
 #print(tot)
 
-if useYearInsteadOfEra:
-    summariesBak = summaries
-    summaries = mergeSummariesInYears(summaries)
-    datasets_, eras_ = getDatasetEras(summaries)
+summariesEra = summaries
+summariesYear = mergeSummariesInYears(summaries)
+del summaries
 
 #tot = 0
 #print("CHECK 1")
@@ -171,13 +256,6 @@ tdrstyle.cd()
 
 ROOT.gROOT.SetBatch(ROOTbatch)
 
-eras = sortEras(eras_)
-## template histogram, with era as x label
-dataset_size = ROOT.TH1F("dataset_size","",len(eras),0,len(eras))
-for i in range(len(eras)):
-    dataset_size.GetXaxis().SetBinLabel(i+1, eras[i])
-
-
 colorMap = {
     "Parking": ROOT.kRed,
     "Prompt": ROOT.kBlue,
@@ -186,45 +264,47 @@ colorMap = {
     "Others": ROOT.kMagenta,
     "Fake": ROOT.kYellow,
 }
+if len(groupsToBeRemoved) ==0: colorMap = {}
 
 colors = [
 #ROOT.kBlack,
 
 #ROOT.kGreen-10,
-ROOT.kGreen-7,
+ROOT.kGreen-9,
 ROOT.kGreen,
 ROOT.kGreen+2,
 #ROOT.kGreen+4,
 
-ROOT.kYellow-10,
-ROOT.kYellow-7,
+#ROOT.kBlue-10,
+ROOT.kBlue-9,
+ROOT.kBlue,
+ROOT.kBlue+2,
+#ROOT.kBlue+4,
+
+#ROOT.kYellow-10,
+ROOT.kYellow-9,
 ROOT.kYellow,
 ROOT.kYellow+2,
 #ROOT.kYellow+4,
 
 #ROOT.kRed-10,
-ROOT.kRed-7,
+ROOT.kRed-9,
 ROOT.kRed,
 ROOT.kRed+2,
 #ROOT.kRed+4,
 
+#ROOT.kCyan-10,
+ROOT.kCyan-9,
+ROOT.kCyan,
+ROOT.kCyan+2,
+#ROOT.kCyan+4,
+
 #ROOT.kMagenta-10,
-ROOT.kMagenta-7,
+ROOT.kMagenta-9,
 ROOT.kMagenta,
 ROOT.kMagenta+2,
 #ROOT.kMagenta+4,
 
-#ROOT.kBlue-10,
-ROOT.kBlue-7,
-ROOT.kBlue,
-ROOT.kBlue+2,
-#ROOT.kBlue+4,
-
-#ROOT.kCyan-10,
-ROOT.kCyan-7,
-ROOT.kCyan,
-ROOT.kCyan+2,
-#ROOT.kCyan+4,
 
 #ROOT.kYellow+1,
 #ROOT.kRed,
@@ -243,416 +323,21 @@ ROOT.kCyan+2,
 #ROOT.kGray,
 ]
 
-## merge "other" histograms
-mergeDataset = {
-    "Others" : [
-        "ReservedDoubleMuonLowMass",
-#        "BTagMu",
-#        "Commissioning",
-        "CommissioningRawPrime",
-        "CommissioningZDC",
-#        "Cosmics",
-#        "DisplacedJet",
-        "EmptyBX",
-        "MinimumBias",
-#        "NoBPTX",
-#        "MuonEG",
-#        "ReservedDoubleMuonLowMass",
-#        "ScoutingPFMonitor",
-#        "Tau",
-        "HLTPhysics",
-        "MuonShower",
-#        "ZeroBias",
-        "ZeroBiasNonColliding",
-        "IsolatedBunch",
-        "HLTRAWTest",
-        "RandomTOTEM",
-        "L1MinimumBias",
-        "DoubleMuonLowPU",
-        "JetsTOTEM",
-        "SingleTrack",
-        "MuonEGammaTOTEM",
-        "CommissioningEGamma",
-        "CommissioningMuons",
-        "ScoutingPFCommissioning",
-        "CommissioningSingleJet",
-        "CommissioningTaus",
-        "HFvetoTOTEM",
-        "Totem",
-        "CommissioningHTT",
-        "ScoutingCaloCommissioning",
-        "CommissioningETM",
-        "CommissioningDoubleJet",
-        "TestEnablesEcalHcalDT",
-        "EcalLaser",
-        "TestEnablesEcalHcalXeXeTest",
-        "HighPtLowerPhotons",
-        "L1AcceptXeXeTest",
-
-        "ZeroBiasPD",
-        "ZeroBias8b4e",
-        "ZeroBiasNominalTrains",
-        "ZeroBiasIsolatedBunches",
-        "VRZeroBias",
-
-#    ],
-#    "HIon" : [
-        "HIDoubleMuon",
-        "HIMinimumBias",
-        "HIHardProbes",
-        "HIOniaTnP",
-        "HIOnia",
-        "HIHardProbesPrescaleJets",
-        "HIHardProbesPrescaleEGs",
-        "HIHardProbesPrescaled",
-        "HIHardProbesPeripheral",
-        "HITrackerVriginRaw",
-        "HIForward",
-        "HIExpressPhysics",
-        "HIHLTMonitor",
-        "HITrackerNZS",
-        "HITestRawPrime",
-        "HITestRaw",
-        "HIRateTest",
-        "HITestFull",
-        "HighPtPhoton30AndZ",
-        "HITestReduced",
-        "HIMinimumBiasReducedFormat",
-        "HICosmicsTestXeXeTest",
-        "HISingleMuon",
-        "HICosmicsTestXeXeTest-Error",
-        "HIEmptyBX",
-        "HIExpressPhysicsRawPrime",
-        "HIHLTPhysics",
-        "HIHcalNZS",
-        "HIPhysicsRawPrime",
-        "HIRateRest",
-        "HINCaloJets",
-        "HINPFJets",
-        "HITestVR",
-        "HIZeroBias",
-        "RateTestHI",
-        "HeavyFlavor",
-        "ScoutingMonitor",
-        "ParkingMonitor"
-        
-    ],
-    "Scouting" : [
-        "ScoutingPFMuons",
-        "ScoutingPFRun",
-        "ScoutingCaloMuon",
-        "ScoutingPFMuon",
-        "ScoutingCaloHT",
-        "ScoutingPFHT",
-        "DataScouting",
-    ],
-    "Parking" : [
-        "ParkingHLTPhysicsTrains",
-        "ParkingZeroBiasTrains",
-        "ParkingZeroBias",
-        "ParkingL1SingleEGer",
-        "ParkingL1SingleJet",
-        "ParkingL1DoubleEG",
-        "ParkingL1SingleMu",
-        "ParkingZeroBiasIndiv",
-        "ParkingL1SingleTau",
-        "ParkingL1HTTer",
-        "ParkingL1DoubleIsoTau",
-        "ParkingL1SingleEG",
-        "ParkingL1TripleMu",
-        "ParkingL1DoubleJet",
-        "ParkingL1DoubleMu",
-        "ParkingCosmicsVirginRaw",
-        "ParkingHLTPhysicsIndiv",
-        "ParkingL1ETMHF",
-        "ParkingBPHPromptCSCS",
-        "ParkingHIZeroBias",
-        "ParkingHT",
-        "ParkingHLTPhysics",
-        "ParkingScoutingMonitor",
-        "ParkingL1MinimumBias",
-        "DoubleMuParked",
-        "TauParked",
-        "HTMHTParked",
-        "ParkingMuons",
-        "METParked",
-        "ZeroBiasParked",
-        "HLTPhysicsParked",
-        "SinglePhotonParked",
-        "MuOniaParked",
-        "MultiJet1Parked",
-        "ParkingHT450to",
-        "ParkingHT470to",
-        "ParkingHT410to",
-        "ParkingHT430to",
-        "ParkingHT500to",
-        "ParkingHT550to",
-        "VBF1Parked",
-        
-        ## large rate parking
-        "ParkingDoubleMuonLowMass",
-        "ParkingBPH",
-        "ParkingDoubleElectronLowMass",
-        "ParkingVBF",
-        "ParkingSingleMuon",
-        "ParkingMuon",
-        "ParkingHH",
-        "ParkingLLP",
-    
-    ],
-#    "Parking" : [
-#        "ParkingHLTPhysicsTrains",
-#        "ParkingZeroBiasTrains",
-#        "ParkingZeroBias",
-#        "ParkingL1SingleEGer",
-#        "ParkingL1SingleJet",
-#        "ParkingL1DoubleEG",
-#        "ParkingL1SingleMu",
-#        "ParkingZeroBiasIndiv",
-#        "ParkingL1SingleTau",
-#        "ParkingL1HTTer",
-#        "ParkingL1DoubleIsoTau",
-#        "ParkingL1SingleEG",
-#        "ParkingL1TripleMu",
-#        "ParkingL1DoubleJet",
-#        "ParkingL1DoubleMu",
-#        "ParkingCosmicsVirginRaw",
-#        "ParkingHLTPhysicsIndiv",
-#        "ParkingL1ETMHF",
-#        "ParkingBPHPromptCSCS",
-#        "ParkingHIZeroBias",
-#        "ParkingDoubleElectronLowMass",
-#        "ParkingSingleMuon",
-#        "ParkingDoubleMuonLowMass",
-#        "ParkingHH",
-#        "ParkingLLP",
-#        "ParkingVBF",
-#        "ParkingHT",
-#        "ParkingBPH", ##2018
-#        "ParkingHLTPhysics",
-#        "ParkingMuon",
-#        "ParkingScoutingMonitor",
-#        "ParkingL1MinimumBias",
-#    ],
-    "Prompt" : [
-        "HighMultiplicityEOF", ##large rate, small event size
-        "NoBPTX", ##large rate, small event size
-        "SingleMuLowPt",
-        "SingleMuHighPt",
-        "BTagMu",
-        "EGamma",
-        "DoubleMuonLowMass",
-        "JetMET",
-        "Tau",
-        "Muon",
-        "DisplacedJet",
-#    "DoubleMuonLowMass" : [
-        "MuOnia",
-        "Charmonium",
-#    ],
-#    "JetMET" : [
-        "JetHT",
-        "HTMHT",
-        "MET",
-        "BTagCSV",
-        "HT",
-        "BJetPlusX",
-        "MultiJet",
-#    ],
-#    "Tau" : [
-        "TauPlusX",
-#    ],
-#    "Muon" : [
-        "SingleMuon",
-        "DoubleMuon",
-        "MuonEG",
-        "DoubleMu",
-        "MuHad",
-        "SingleMu",
-#    ],
-#    "EGamma" : [
-        "SingleElectron",
-        "SinglePhoton",
-        "Photon",
-        "DoubleEG",
-        "ElectronHad",
-        "DoublePhoton",
-        "DoubleElectron"
-    ],
-    "Commissioning" : [
-        "L1Accept", ##small event size
-        "TestEnables", ##small event size
-        "TOTEM", ##small event size
-        "TOTEM_zeroBias", ##small event size
-
-        "TOTEM_romanPotsTTBB_", 
-        "ZeroBiasTOTEM", 
-        "TOTEM_romanPots2_", 
-        "TOTEM_minBias", 
-        "ToTOTEM", 
-
-        "HcalHPDNoise", 
-        "MiniDaq", 
-
-
-        "ZeroBiasIsolatedBunch", 
-        "ZeroBiasPixelHVScan", 
-        "ZeroBias25ns", 
-        "ZeroBiasHPF", 
-        "ZeroBiasBunchTrains", 
-        "HINMuon_HFveto", 
-        "HighMultiplicity", 
-        "HLTPhysics25ns", 
-        "ZeroBiasVdM", 
-        "ZeroBiasFirstBunchInTrain", 
-        "LogMonitor", 
-        "ZeroBiasFirstBunchAfterTrain", 
-        "VRRandom", 
-        "JetMon", 
-        "L1JetHPF", 
-        "L1EGHPF", 
-        "HighPileUp", 
-        "HLTPhysicsIsolatedBunch", 
-        "HighPileUpHPF", 
-
-        "ScoutingPFMonitor",
-#        "HIon",
-#    ],
-#    "ALCA" : [
-        "AlCaElectron", ##small event size
-        "AlCaLowPtJet",
-        "AlCaLumiPixelsCountsGated",
-        "AlCaLumiPixelsCountsPrompt",
-        "AlCaP",
-        "AlCaPPSPrompt",
-        "AlCaPhiSym",
-        "HcalNZS",
-        "RPCMonitor",
-        "TestEnablesEcalHcal",
-        "AlcaLumiPixelsExpress",
-        "AlCaLumiPixelsCountsUngated",
-        "AlCaPPS",
-        "AlCaLumiPixelsXeXeTest",
-        "ALCAP",
-        "AlCaLumiPixels",
-        "ExpressAlignment",
-
-        "AllPhysics2",
-        "FSQJet",
-        "Jet",
-        "MuEG",
-        "ForwardTriggers",
-        "PhotonHad",
-        "FSQJets",
-        "DoublePhotonHighPt",
-        "BTag",
-        "METBTag",
-
-        "SingleElectron_0T",
-        "JetHT_0T",
-        "SinglePhoton_0T",
-        "Commissioning_0T",
-        "HTMHT_0T",
-        "MET_0T",
-    ],
-#    "ZeroBias" : [
-#        "ZeroBiasPD",
-#        "ZeroBias8b4e",
-#        "ZeroBiasNominalTrains",
-#        "ZeroBiasIsolatedBunches",
-#        "VRZeroBias",
-#    ],
-#    "Ephemeral" : [
-#        "EphemeralHLTPhysics",
-#        "EphemeralZeroBias",
-#    ],
-#    "Special" : [
-#        "SpecialHLTPhysics",
-#        "SpecialZeroBias",
-#        "SpecialRandom",
-#    ],
-    "ToBeRemoved" : [
-        ## Cosmics
-        "Cosmics",  ##small event size
-        "Interfill",  ##small event size
-        
-        ## ZeroBias
-        "ZeroBias",
-        
-        ## Ephemeral
-        "EphemeralHLTPhysics",
-        "EphemeralZeroBias",
-        
-        ## Special
-        "SpecialHLTPhysics",
-        "SpecialZeroBias",
-        "SpecialRandom",
-        
-        "D",
-        "ParkingDoubleElectronLowMass-Error",
-        "EGamma-Error",
-        "CommissioningEGamma-Error",
-        "MET-Error",
-        "ZeroBias2-Error",
-        "ZeroBias4-Error",
-        "ZeroBias1-Error",
-        "ZeroBias3-Error",
-        "ZeroBias9-Error",
-        "ZeroBias6-Error",
-        "ZeroBias5-Error",
-        "ZeroBias8-Error",
-        "ZeroBias7-Error",
-        "ZeroBias0-Error",
-        "LowEGJet-Error",
-        "FSQJet2-Error",
-        "HFvetoTOTEM-Error",
-        "SingleMuon-Error",
-        "IsolatedBunch-Error",
-        "Cosmics-Error",
-        "MinimumBias-Error",
-        "Commissioning3-Error",
-        "ZeroBias-Error",
-        "CommissioningSingleJet-Error",
-        "ZeroBias10-Error",
-        "Totem12-Error",
-        "Commissioning2-Error",
-        "DoubleEG-Error",
-        "VRRandom2-Error",
-        "VRRandom1-Error",
-        "VRRandom3-Error",
-        "VRRandom0-Error",
-        "VRRandom4-Error",
-        "ParkingHT-Error",
-        "CommissioningETM-Error",
-        "JetHT-Error",
-
-        "ParkingZeroBiasPONIES2-Error",
-        "ParkingZeroBiasPONIES3-Error",
-        "AlCaLumiPixels-Error",
-        "AlCaPhiSym-Error",
-        "Interfill-Error",
-        "Commissioning-Error",
-        "NoBPTX-Error",
-        "HLTPhysicsIsolatedBunch-Error",
-        "VirginRawZeroBias-Error",
-
-        "PPRefZeroBias",
-        "PPRefDoubleMuon",
-        "PPRefExotica",
-        "PPRefHardProbes",
-        "PPRefSingleMuon",
-
-        "Fake",
-    ],
-}
 
 for dataset in datasets_:
     noGroup = True
     for group in mergeDataset:
         if dataset in mergeDataset[group] or dataset==group:
             noGroup = False
-    if noGroup:
+    if noGroup: # and not ("Fake" in dataset)
         mergeDataset["Others"].append(dataset)
+
+for merge in list(mergeDataset):
+    if len(mergeDataset[merge])==0:
+        del mergeDataset[merge]
+        if merge in groups: 
+            groups.remove(merge)
+
 
 ### Sanity check in mergeDataset
 check = set()
@@ -720,132 +405,182 @@ def getLabel(var):
 #var = 'data'
 var = 'events'
 #for var in ['xsect', 'rate_2E34', 'rate', 'data', 'events']:
-#for group in ["main","Prompt"]:
-for group in ["main"]+list(mergeDataset):
-    for var in ['rate', 'aveLumi', 'intLumi', 'duration', 'xsect', 'rate_2E34', 'data', 'events', 'dataPerLumi', 'dataPerTime']:
-#    for var in ['data', 'intLumi', 'dataPerLumi']:
-#    for var in ['rate']:
-    #for var in ['rate']:
-    #for var in ['aveLumi']:
-        eras = sortEras(eras_)
-        datasets = sortDatasets(datasets_, summaries)
-        if var in notMergeableVariables: 
-            datasets.append("Fake")
-            if group!="main": continue
-
-        canvas = ROOT.TCanvas("canvas", "", 1280, 1024)
-        canvas.SetGridx()
-        canvas.SetGridy()
-        ## initialize histograms
-        dataset_sizes = {}
-        dataset_sizes_num = {}
-        dataset_sizes_den = {}
-        for dataset in datasets:
-            dataset_sizes[dataset] = dataset_size.Clone(dataset)
-            dataset_sizes_num[dataset] = dataset_size.Clone(dataset)
-        dataset_sizes_den["Fake"] = dataset_size.Clone("Fake")
-#            color = colors[datasets.index(dataset)%len(colors)]
-
-        ## fill histograms
-        for summary in summaries.values():
-            datName = summary['dataset_name']
-#            print(summary)
-            if datName in datasets and summary['era'] in eras:
-                dataset_sizes_num[datName].Fill( eras.index(summary['era']), getVariable(summary, var)  ) #/ summary['num_lumi']
-                dataset_sizes_num[datName].SetBinError( eras.index(summary['era'])+1, 0.0001 )
-                if datName == "Fake": 
-                    dataset_sizes_den[datName].Fill( eras.index(summary['era']), getVariable(summary, var, denominator=True)  ) #/ summary['num_lumi']
-                    dataset_sizes_den[datName].SetBinError( eras.index(summary['era'])+1, 0.0001 )
-#                print(datName, summary['era'], summary['file_size'])
-        for d in dataset_sizes:
-            if var in notMergeableVariables and d != "Fake": continue
-            dataset_sizes[d].Divide(dataset_sizes_num[d], dataset_sizes_den["Fake"])
-
-        if group=="main":
-            for merge in mergeDataset:
-                if not merge in dataset_sizes:
-                    dataset_sizes[merge] = dataset_size.Clone(merge)
-                    datasets.append(merge)
-                for tobemerged in mergeDataset[merge]:
-                    if tobemerged in dataset_sizes:
-                        dataset_sizes[merge].Add(dataset_sizes[tobemerged])
-                        if tobemerged in datasets: datasets.remove(tobemerged)
+for useYearInsteadOfEra in [True, False]:
+    if useYearInsteadOfEra:
+        summaries = summariesYear
+    else:
+        summaries = summariesEra
+    datasets_, eras_ = getDatasetEras(summaries)
+    eras = sortEras(eras_)
+    ## template histogram, with era as x label
+    dataset_size = ROOT.TH1F("dataset_size","",len(eras),0,len(eras))
+    for i in range(len(eras)):
+        dataset_size.GetXaxis().SetBinLabel(i+1, eras[i])
+    
+    for group in groups:
+    #for group in ["main"]+list(mergeDataset):
+    #for group in ["ToBeRemoved"]:
+        for var in vars:
+            print("DOING %s %s"%(var, group))
+    #    for var in ['rate']:
+    #    for var in ['data', 'intLumi', 'dataPerLumi']:
+    #    for var in ['rate']:
+        #for var in ['rate']:
+        #for var in ['aveLumi']:
+            if var in notMergeableVariables and group!="lumi": continue
+            if not (var in notMergeableVariables) and group=="lumi": continue
+            eras = sortEras(eras_)
+            datasets = sortDatasets(datasets_, summaries)
+    #        datasets.append("Fake")
+    #        mergeDataset["Fake"]=["Fake"]
             
-                if "ToBeRemoved" in datasets: datasets.remove("ToBeRemoved")
-        else:
-            for g in mergeDataset:
-                if not g == group: ## remove all dataset which are not in the selected group
-                    for d in mergeDataset[g]+[g]:
-                        if d in datasets: 
-                            datasets.remove(d)
-        ##sort by size
-#        print("________________________________")
-        sizes = []
-        for dataset in datasets:
-           sizes.append((dataset_sizes[dataset].Integral()/1E12, dataset))
+    #        canvas = ROOT.TCanvas("canvas", "", 1920, 1200)
+            canvas = ROOT.TCanvas("canvas", "", 1920, 1600)
+            canvas.SetGridx()
+            canvas.SetGridy()
+            ## initialize histograms
+            dataset_sizes = {}
+            dataset_sizes_num = {}
+            dataset_sizes_den = {}
+            for dataset in datasets:
+                dataset_sizes[dataset] = dataset_size.Clone(dataset)
+                dataset_sizes_num[dataset] = dataset_size.Clone(dataset)
+            dataset_sizes_den["Fake"] = dataset_size.Clone("Fake")
+    #            color = colors[datasets.index(dataset)%len(colors)]
 
-        if len(sizes)==0: continue
-        sorted(sizes)
-        a,b = zip(*sizes)
-        datasets = list(b)
-        datasets = sorted(datasets, key=lambda val: "ReservedDouble" in val)
-        datasets = sorted(datasets, key=lambda val: "Other Par" in val)
-        datasets = sorted(datasets, key=lambda val: "Park" == val[0:4])
-        datasets = sorted(datasets, key=lambda val: not "ALCA" in val)
-        datasets = sorted(datasets, key=lambda val: not "ScoutingPFMonitor" in val)
-        datasets = sorted(datasets, key=lambda val: not "HighMultiplicityEOF" in val)
-        datasets = sorted(datasets, key=lambda val: not "Others" in val)
-        datasets = sorted(datasets, key=lambda val: not "Commisioning" in val)
-        datasets = sorted(datasets, key=lambda val: not "Park" in val)
-        datasets = sorted(datasets, key=lambda val: not "Scouting" in val)
-        datasets = sorted(datasets, key=lambda val: not "Prompt" in val)
+            ## fill histograms
+            for summary in summaries.values():
+                datName = summary['dataset_name']
+    #            print(datName, summary['era'], summary['era'] in eras, datName in datasets)
+                if datName in datasets and summary['era'] in eras:
+                    dataset_sizes_num[datName].Fill( eras.index(summary['era']), getVariable(summary, var)  ) #/ summary['num_lumi']
+                    dataset_sizes_num[datName].SetBinError( eras.index(summary['era'])+1, 0.0001 )
+    #                print(datName)
+                    if datName == "Fake": 
+                        dataset_sizes_den[datName].Fill( eras.index(summary['era']), getVariable(summary, var, denominator=True)  ) #/ summary['num_lumi']
+                        dataset_sizes_den[datName].SetBinError( eras.index(summary['era'])+1, 0.0001 )
+    #                    print("AAAA", datName, summary['era'], summary['file_size'])
+            for d in dataset_sizes:
+                if (var in notMergeableVariables) and (d != "Fake"): continue
+                if dataset_sizes_den["Fake"].Integral()<=0:
+                    for d in summaries:
+                        print(d, summaries[d]['dataset_name'], summaries[d]['era'])
+                    print(d)
+                    print(dataset_sizes)
+                    print(datasets)
+                    print(eras)
+                    raise Exception("dataset_sizes_den['Fake'].Integral()<=0")
+                dataset_sizes[d].Divide(dataset_sizes_num[d], dataset_sizes_den["Fake"])
+                print("Computing",d,var,dataset_sizes[d].Integral())
+    #            print(d, dataset_sizes_num[d].Integral(), dataset_sizes_den["Fake"].Integral(), dataset_sizes[d].Integral())
 
-#        pprint.pprint(sizes)
+            if group=="main":
+                for merge in mergeDataset:
+                    if not merge in dataset_sizes:
+                        dataset_sizes[merge] = dataset_size.Clone(merge)
+                    if not merge in datasets:
+                        datasets.append(merge)
+                    for tobemerged in mergeDataset[merge]:
+                        if tobemerged in dataset_sizes:
+                            dataset_sizes[merge].Add(dataset_sizes[tobemerged])
+                            print("Merging %s in %s"%(tobemerged, merge))
+                            if tobemerged in datasets: datasets.remove(tobemerged)
+                if len(groupsToBeRemoved)>0:
+                    for groupToBeRemoved in groupsToBeRemoved:
+                        if groupToBeRemoved in datasets: datasets.remove(groupToBeRemoved)
+    #                if "ToBeRemoved" in datasets: datasets.remove("ToBeRemoved")
+    #                if "Commissioning" in datasets: datasets.remove("Commissioning")
+    #                if "Others" in datasets: datasets.remove("Others")
+            else:
+                for g in mergeDataset:
+                    if not g == group: ## remove all dataset which are not in the selected group
+                        for d in mergeDataset[g]+[g]:
+                            if d in datasets: 
+                                datasets.remove(d)
+            ##sort by size
+    #        print("________________________________")
+            sizes = []
+            for dataset in datasets:
+               sizes.append((dataset_sizes[dataset].Integral()/1E12, dataset))
 
-        #dataset_sizes[datasets[0]].Draw()
+            if len(sizes)==0: continue
+            sizes = sorted(sizes)
+            a,b = zip(*sizes)
+            datasets = list(b)
+    #        datasets = sorted(datasets, key=lambda val: "ReservedDouble" in val)
+    #        datasets = sorted(datasets, key=lambda val: "Other Par" in val)
+    #        datasets = sorted(datasets, key=lambda val: "Park" == val[0:4])
+    #        datasets = sorted(datasets, key=lambda val: not "ALCA" in val)
+    #        datasets = sorted(datasets, key=lambda val: not "ScoutingPFMonitor" in val)
+    #        datasets = sorted(datasets, key=lambda val: not "HighMultiplicityEOF" in val)
+            datasets = sorted(datasets, key=lambda val: not "Others" in val)
+            datasets = sorted(datasets, key=lambda val: not "Commisioning" in val)
+            datasets = sorted(datasets, key=lambda val: not "Park" in val)
+            datasets = sorted(datasets, key=lambda val: not "Scouting" in val)
+            datasets = sorted(datasets, key=lambda val: not "Prompt" in val)
 
-        ## build stack
-        if group == "main":
-            leg = ROOT.TLegend(0.12,0.65,0.30,0.88)
-        else:
-            leg = ROOT.TLegend(0.12,0.45,0.35,0.98)
-        #leg.SetHeader("")
-        stack = ROOT.THStack("stack", "")
-        for i in range(len(datasets)):
-            d = datasets[i]
-            if dataset_sizes[d].Integral()>0: 
-                dataset_sizes[d].SetLineColor(ROOT.kBlack)
-                if d in colorMap:
-                    color = colorMap[d]
-                else:
-                    color = colors[i%len(colors)]
-                dataset_sizes[d].SetFillColor(color)
-                stack.Add(dataset_sizes[d])
+            pprint.pprint(sizes)
 
-        for i in range(len(datasets)):
-            d = datasets[len(datasets)-1-i]
-            print(d)
-            if dataset_sizes[d].Integral()>0: leg.AddEntry(dataset_sizes[d],d) # or lep or f
+            #dataset_sizes[datasets[0]].Draw()
 
-        #stack.Add("Others")
+            ## build stack
+            if group == "main" or group == 'lumi':
+                leg = ROOT.TLegend(0.12,0.65,0.30,0.88)
+            else:
+                leg = ROOT.TLegend(0.12,0.45,0.35,0.98)
+            #leg.SetHeader("")
+            stack = ROOT.THStack("stack", "")
+            for i in range(len(datasets)):
+                d = datasets[i]
+                if dataset_sizes[d].Integral()>0: 
+                    dataset_sizes[d].SetLineColor(ROOT.kBlack)
+                    if d in colorMap:
+                        color = colorMap[d]
+                    else:
+                        color = colors[i%len(colors)]
+                    dataset_sizes[d].SetFillColor(color)
+                    stack.Add(dataset_sizes[d])
 
-        #    print(dataset_sizes[datasets[i]].Integral())
-        #    dataset_sizes[datasets[i]].Clone().Draw("same")
-        #    canvas.Update()
+            for i in range(len(datasets)):
+                d = datasets[len(datasets)-1-i]
+                print(d)
+                if dataset_sizes[d].Integral()>0:
+                    if leg.GetNRows()>30: leg.SetNColumns(2)
+                    leg.AddEntry(dataset_sizes[d],d) # or lep or f
 
-#        if stack.GetMaximum()<=0: continue
-        stack.Draw("HIST")
-    #    if var!='aveLumi': stack.Draw("HIST")
-    #    else:  stack.Draw("E0")
-        stack.SetMaximum(stack.GetMaximum()*1.6)
-        if useYearInsteadOfEra:
-            stack.GetXaxis().SetTitle("Year")
-        else:
-            stack.GetXaxis().SetTitle("Era")
-        stack.GetYaxis().SetTitle(getLabel(var))
-        if not (var in notMergeableVariables): leg.Draw() 
-        
-        canvas.SaveAs("plot_"+group+"_"+var+".png")
-        canvas.SaveAs("plot_"+group+"_"+var+".root")
+            #stack.Add("Others")
+
+            #    print(dataset_sizes[datasets[i]].Integral())
+            #    dataset_sizes[datasets[i]].Clone().Draw("same")
+            #    canvas.Update()
+
+    #        if stack.GetMaximum()<=0: continue
+            stack.Draw("HIST")
+        #    if var!='aveLumi': stack.Draw("HIST")
+        #    else:  stack.Draw("E0")
+            stack.SetMaximum(stack.GetMaximum()*1.6)
+            if useYearInsteadOfEra:
+                stack.GetXaxis().SetTitle("Year")
+            else:
+    #            stack.GetXaxis().SetTitle("Era")
+                stack.GetXaxis().LabelsOption("v")
+            stack.GetYaxis().SetTitle(getLabel(var))
+            if not (var in notMergeableVariables): leg.Draw() 
+            
+            if useYearInsteadOfEra:
+                period = "year"
+            else:
+                period = "era"
+            import os
+            
+            if not os.path.exists(directoryPlot):
+                os.mkdir(directoryPlot)
+            canvas.SaveAs("%s/plot_"%directoryPlot+group+"_"+period+"_"+var+".png")
+            canvas.SaveAs("%s/plot_"%directoryPlot+group+"_"+period+"_"+var+".root")
+            savePy(stack, "%s/plot_"%directoryPlot+group+"_"+period+"_"+var+".py")
+            del stack
+            del canvas
+            del dataset_sizes, dataset_sizes_num, dataset_sizes_den
+    del dataset_size
 
 

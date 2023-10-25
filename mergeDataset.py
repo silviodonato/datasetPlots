@@ -14,7 +14,6 @@ mergeDataset = {
     "Parking" : [
         "ParkingHLTPhysicsTrains",
         "ParkingZeroBiasTrains",
-        "ParkingZeroBias",
         "ParkingL1SingleEGer",
         "ParkingL1SingleJet",
         "ParkingL1DoubleEG",
@@ -34,7 +33,6 @@ mergeDataset = {
         "ParkingHIZeroBias",
         "ParkingHT",
         "ParkingHTto",
-        "ParkingHLTPhysics",
         "ParkingScoutingMonitor",
         "ParkingL1MinimumBias",
         "DoubleMuParked",
@@ -114,7 +112,10 @@ mergeDataset = {
     ],
     "ZeroBias" : [
 #        "ZeroBias",
+        "ParkingZeroBias", ##0.50 PB collected in 2016
+        "ParkingHLTPhysics", ##0.22 PB collected in 2016
         
+        "HLTPhysicspart",
         "MinimumBias",
         
         "L1MinimumBias",
@@ -293,8 +294,6 @@ mergeDataset = {
     ],
 
     "Others" : [
-        "HighMultiplicityEOF", ##large rate, small event size
-        "NoBPTX", ##large rate, small event size
     ],
 
     "Prompt" : [
@@ -456,6 +455,8 @@ mergeDataset = {
 
     ],
     "SmallEventContent" : [
+        "HighMultiplicityEOF", ##large rate, small event size
+        "NoBPTX", ##large rate, small event size
         "LAccept", 
         "L1Accept", ##small event size
         "MiniDaq", 
@@ -464,19 +465,20 @@ mergeDataset = {
     "Reserved" : [
         "ReservedDoubleMuonLowMass", ### to be removed??
     ],
-    "DAQTest" : [
-        "HIRateRest",
-        "RateTestHI",
-    ],
+#    "DAQTest" : [
+#    ],
     "ToBeRemoved" : [
 #        "Fake",
         ## Cosmics
-        
-        "HLTRAWTest",
-
 #    ],
 #    "HIon" : [
+
+        ##DaqTest
+        "HIRateRest",
+        "RateTestHI",
+
         ##Scouting Commissioning
+        "HLTRAWTest",
         
         "ParkingMonitor"
         
