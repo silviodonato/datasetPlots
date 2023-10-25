@@ -58,8 +58,8 @@ groupsToBeRemoved = [
 #vars =  ['aveLumi','rate']
 #vars =  ['dataPerLumi','data']
 
-#groups = ["HIon"]
-#vars =  ['data']
+groups = ["Parking"]
+vars =  ['rate']
 
 
 minimalSize = 0 #in GB
@@ -176,6 +176,19 @@ def mergeSummariesInYears(summaries):
         mergedSummaries[key]["era"] = copy(summary["year"])
     return mergedSummaries
 
+def getLargestDatasets(summaries):
+    mergedSummaries = {}
+    for summary in summaries.values():
+        key = (summary["dataset_name"], summary["year"], summary["format"])
+        if not (key in mergedSummaries.keys()): mergedSummaries[key] = copy(summary)
+        else:
+            for el in ["file_size", "delivered_lumi", "recorded_lumi", "duration", "nevents", "nlumis", "nblocks", "nfiles", "num_block", "num_lumi"]:
+                if el == "recorded_lumi" and "EmptyBX" in key[0] and "2023" in key[1]:
+#                    print(key, mergedSummaries[key][el], summary[el])
+                    pass
+                mergedSummaries[key][el] += summary[el]
+        mergedSummaries[key]["era"] = copy(summary["year"])
+    return mergedSummaries
 ##################################################
 #Add fake dataset
 datasets_, eras_ = getDatasetEras(summaries)
