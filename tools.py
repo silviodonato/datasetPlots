@@ -69,7 +69,7 @@ def stripVersion(name):
     return name
 
 
-def getOMSdata(omsapi,table, attributes, filters, max_pages=max_pages, verbose=verbose):
+def getOMSdata(omsapi,table, attributes, filters, customs = {} ,max_pages=max_pages, verbose=verbose):
     query = omsapi.query(table)
     query.set_verbose(verbose)
     query.per_page = max_pages  # to get all names in one go
@@ -81,6 +81,8 @@ def getOMSdata(omsapi,table, attributes, filters, max_pages=max_pages, verbose=v
             if  filters[var][1]!=None: query.filter(var, filters[var][1], "LE")
         elif len(filters[var])==1:
             query.filter(var, filters[var][0])
+    for var in customs:
+        query.custom(var, customs[var])
     resp = query.data()
     oms = resp.json()   # all the data returned by OMS
     return oms['data']
