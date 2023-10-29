@@ -3,7 +3,8 @@
 max_pages = 1000
 verbose = False
 
-era = "Run2022G"
+#era = "Run2022G"
+era = "Run2022D"
 dataset = "Muon"
 
 from tools import getOMSAPI, getAppSecret, getOMSdata
@@ -13,7 +14,7 @@ omsapi = getOMSAPI(getAppSecret())
 def getDatasetEvents(omsapi, runMin, runMax, datasetName, verbose=verbose):
     data = getOMSdata(omsapi, "datasetrates", 
     #    attributes = ["fill_number","rate","counter","last_lumisection_number","first_lumisection_number","run_number","path_name"], 
-        attributes = ["rate","events","dataset_name","run_number"], 
+        attributes = ["rate","events","dataset_name","run_number","last_lumisection_number","first_lumisection_number"], 
         filters = {
             "dataset_name": [datasetName],
             "run_number": [runMin, runMax],
@@ -28,7 +29,7 @@ def getDatasetEvents(omsapi, runMin, runMax, datasetName, verbose=verbose):
     for d in data:
         run = d['attributes']['run_number']
         count += d['attributes']['events']
-        print(run, d['attributes']['events'])
+        print(run, d['attributes']['events'], d['attributes']['rate'], d['attributes']['last_lumisection_number']-d['attributes']['first_lumisection_number']+1)
     return count
 
 query = omsapi.query("eras")
@@ -57,7 +58,6 @@ data2 = oms['data']
 delivered_lumi_tot, recorded_lumi_tot, duration_tot = 0, 0, 0
 count = 0
 for d2 in reversed(data2):
-    print("### Fill = %d ###"%d2['attributes']['fill_number'])
     delivered_lumi, recorded_lumi, duration = d2['attributes']['delivered_lumi'], d2['attributes']['recorded_lumi'], d2['attributes']['duration']
     if delivered_lumi: delivered_lumi_tot += delivered_lumi
     if duration: duration_tot += duration
@@ -65,10 +65,11 @@ for d2 in reversed(data2):
     else: continue ##Ignore empty fills
     run_min, run_max = d2['attributes']['first_run_number'], d2['attributes']['last_run_number']
     events = getDatasetEvents(omsapi, run_min, run_max, dataset)
-    print("Run = %d - %d, Count = %d"%(run_min, run_max, events))
+    print("### Fill = %d ###"%d2['attributes']['fill_number'])
+    print("Run = %d - %d, Count = %d, Recorded lumi = %.1f, Cross Section = %f"%(run_min, run_max, events, recorded_lumi, events/recorded_lumi/1E3))
     count += events
 
 print(fill_min, fill_max)
-print(delivered_lumi_tot, recorded_lumi_tot, duration_tot)
+print(delivered_lumi_tot, recorded_lumi_tot, duration_tot, count/recorded_lumi_tot/1E3)
 print(era, dataset, count)
 
