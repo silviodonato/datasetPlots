@@ -1,9 +1,9 @@
 from datasetInfo_fromDAS import summaries
 from recorded_lumi_fromOMS import recorded_lumi
 from copy import copy
-from mergeDataset import mergeDataset
+from mergeDatasetXCmeeting import mergeDataset
 
-directoryPlot = "plot"
+directoryPlot = "plotXC"
 vars =  ['rate', 'aveLumi', 'intLumi', 'duration', 'xsect', 'rate_2E34', 'data', 'events', 'dataPerLumi', 'dataPerTime']
 groups = ["main","lumi"]+list(mergeDataset)
 
@@ -35,6 +35,7 @@ removeEras = [ ##https://cmsoms.cern.ch/cms/fills/summary?cms_era_name=2015E
 #groups = ["main","lumi","Prompt","Parking", "Scouting"]
 #groups = ["Prompt","Scouting","Parking"]
 groupsToBeRemoved = [
+    "Excluded",
 #    "ZeroBias",
 #    "AlCa",
 #    "Reserved",
@@ -58,7 +59,7 @@ groupsToBeRemoved = [
 #vars =  ['aveLumi','rate']
 #vars =  ['dataPerLumi','data']
 
-groups = ["Parking"]
+#groups = ["Parking"]
 vars =  ['rate']
 
 
