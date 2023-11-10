@@ -60,7 +60,7 @@ groupsToBeRemoved = [
 #vars =  ['dataPerLumi','data']
 
 #groups = ["Parking"]
-vars =  ['rate']
+#vars =  ['rate']
 
 
 minimalSize = 0 #in GB
