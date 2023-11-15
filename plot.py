@@ -3,8 +3,12 @@ from recorded_lumi_fromOMS import recorded_lumi
 from copy import copy
 from mergeDataset import mergeDataset
 
-directoryPlot = "plot"
-vars =  ['rate', 'aveLumi', 'intLumi', 'duration', 'xsect', 'rate_2E34', 'data', 'events', 'dataPerLumi', 'dataPerTime']
+#directoryPlot = "plot"
+#directoryPlot = "plot_all"
+#directoryPlot = "plot_main"
+directoryPlot = "plot_main_noScouting"
+
+vars =  ['rate', 'aveLumi', "aveLumiDel", 'intLumi', 'intLumiDel', 'duration', 'xsect', 'rate_2E34', 'data', 'events', 'dataPerLumi', 'dataPerTime']
 groups = ["main","lumi"]+list(mergeDataset)
 
 groupsToBeRemoved = []
@@ -34,23 +38,24 @@ removeEras = [ ##https://cmsoms.cern.ch/cms/fills/summary?cms_era_name=2015E
 
 #groups = ["main","lumi","Prompt","Parking", "Scouting"]
 #groups = ["Prompt","Scouting","Parking"]
+#groups = ["main","lumi"]
 groupsToBeRemoved = [
-#    "ZeroBias",
-#    "AlCa",
-#    "Reserved",
-#    "HIon",
-#    "ToBeRemoved",
-#    "SmallEventContent",
-#    "TOTEM",
-#    "NoCollisions",
-#    "DAQTest",
-#    "Errors",
-#    "lumi",
-#    "Fake",
-#    "Others",
-#    "Parking",
-#    "Scouting",
-#    "Prompt",
+    "ZeroBias",
+    "AlCa",
+    "Reserved",
+    "HIon",
+    "ToBeRemoved",
+    "SmallEventContent",
+    "TOTEM",
+    "NoCollisions",
+    "DAQTest",
+    "Errors",
+    "lumi",
+    "Fake",
+    "Others",
+###    "Parking",
+    "Scouting",
+###    "Prompt",
 ]
 #groupsToBeRemoved = []
 
@@ -58,8 +63,57 @@ groupsToBeRemoved = [
 #vars =  ['aveLumi','rate']
 #vars =  ['dataPerLumi','data']
 
-groups = ["Parking"]
-vars =  ['rate']
+groups = ["main","lumi"]
+#vars =  ['rate',"aveLumi","aveLumiDel","intLumi","intLumiDel"]
+
+if directoryPlot == "plot_all":
+    groupsToBeRemoved = []
+    groups = ["main","lumi"]+list(mergeDataset)
+    vars =  ['rate', 'aveLumi', "aveLumiDel", 'intLumi', 'intLumiDel', 'duration', 'xsect', 'rate_2E34', 'data', 'events', 'dataPerLumi', 'dataPerTime']
+
+if directoryPlot == "plot_main":
+    groupsToBeRemoved = [
+        "ZeroBias",
+        "AlCa",
+        "Reserved",
+        "HIon",
+        "ToBeRemoved",
+        "SmallEventContent",
+        "TOTEM",
+        "NoCollisions",
+        "DAQTest",
+        "Errors",
+        "lumi",
+        "Fake",
+        "Others",
+###        "Parking",
+###        "Scouting",
+###        "Prompt",
+    ]
+    groups = ["main","lumi","Prompt","Parking","Scouting"]
+    vars =  ['rate', 'aveLumi', "aveLumiDel", 'intLumi', 'intLumiDel', 'duration', 'xsect', 'rate_2E34', 'data', 'events', 'dataPerLumi', 'dataPerTime']
+
+if directoryPlot == "plot_main_noScouting":
+    groupsToBeRemoved = [
+        "ZeroBias",
+        "AlCa",
+        "Reserved",
+        "HIon",
+        "ToBeRemoved",
+        "SmallEventContent",
+        "TOTEM",
+        "NoCollisions",
+        "DAQTest",
+        "Errors",
+        "lumi",
+        "Fake",
+        "Others",
+###        "Parking",
+        "Scouting",
+###        "Prompt",
+    ]
+    groups = ["main","lumi","Prompt","Parking"]
+    vars =  ['rate', 'aveLumi', "aveLumiDel", 'intLumi', 'intLumiDel', 'duration', 'xsect', 'rate_2E34', 'data', 'events', 'dataPerLumi', 'dataPerTime']
 
 
 minimalSize = 0 #in GB
@@ -363,7 +417,7 @@ for dd in mergeDataset.values():
         if not d in check: check.add(d)
         else: raise Exception("Duplicated dataset %s"%d)
 
-notMergeableVariables = ['aveLumi', 'intLumi', 'duration']
+notMergeableVariables = ['aveLumiDel', 'intLumiDel', 'aveLumi', 'intLumi', 'duration']
 
 def getVariable(summary, var, denominator=False):
 #    print(summary)
@@ -377,6 +431,8 @@ def getVariable(summary, var, denominator=False):
         elif var=='events': return summary['nevents']/1E9
         elif var=='aveLumi': return summary['recorded_lumi']
         elif var=='intLumi': return summary['recorded_lumi']/1E3
+        elif var=='aveLumiDel': return summary['delivered_lumi']
+        elif var=='intLumiDel': return summary['delivered_lumi']/1E3
         elif var=='duration': return summary['duration']
         else: return -1
     else:
@@ -389,6 +445,8 @@ def getVariable(summary, var, denominator=False):
         elif var=='events': return 1
         elif var=='aveLumi': return summary['duration']/1E36
         elif var=='intLumi': return 1
+        elif var=='aveLumiDel': return summary['duration']/1E36
+        elif var=='intLumiDel': return 1
         elif var=='duration': return 1
         else: return -1
 
@@ -401,8 +459,10 @@ def getLabel(var):
     elif var=='dataPerLumi': return "Recorded data per integ. lumi[PB/fb-1]"
     elif var=='dataPerTime': return "Average bandwidth during stable beams [GB/s]"
     elif var=='events': return "Total events [B]"
-    elif var=='aveLumi': return "Average instantaneous lumi [cm-2s-1]"
-    elif var=='intLumi': return "Total integrated lumi [fb-1]"
+    elif var=='aveLumi': return "Average rec. instantaneous lumi [cm-2s-1]"
+    elif var=='intLumi': return "Total rec. integrated lumi [fb-1]"
+    elif var=='aveLumiDel': return "Average del. instantaneous lumi [cm-2s-1]"
+    elif var=='intLumiDel': return "Total del. integrated lumi [fb-1]"
     elif var=='duration': return "Total duration [s]"
     else: return -1
 
@@ -428,7 +488,7 @@ for useYearInsteadOfEra in [True, False]:
     ## template histogram, with era as x label
     dataset_size = ROOT.TH1F("dataset_size","",len(eras),0,len(eras))
     for i in range(len(eras)):
-        dataset_size.GetXaxis().SetBinLabel(i+1, eras[i])
+        dataset_size.GetXaxis().SetBinLabel(i+1, eras[i].replace("Run",""))
     
     for group in groups:
     #for group in ["main"]+list(mergeDataset):
@@ -574,8 +634,10 @@ for useYearInsteadOfEra in [True, False]:
             stack.SetMaximum(stack.GetMaximum()*1.6)
             if useYearInsteadOfEra:
                 stack.GetXaxis().SetTitle("Year")
+                stack.GetXaxis().SetTitleOffset(1.2)
             else:
-    #            stack.GetXaxis().SetTitle("Era")
+                stack.GetXaxis().SetTitle("Era")
+                stack.GetXaxis().SetTitleOffset(1.5)
                 stack.GetXaxis().LabelsOption("v")
             stack.GetYaxis().SetTitle(getLabel(var))
             if not (var in notMergeableVariables): leg.Draw() 
