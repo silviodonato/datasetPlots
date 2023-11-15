@@ -15,12 +15,12 @@ num_, den_ = "data", "events"
 fNames = [
 #    "plot/plot_main_era_%s.root",
 #    "plot/plot_main_year_%s.root",
-    "plotXC/plot_main_era_%s.root",
-    "plotXC/plot_main_year_%s.root",
+    "plot_main/plot_main_era_%s.root",
+    "plot_main/plot_main_year_%s.root",
 ]
 
-firstHisto = "DisplacedJet"
-#firstHisto = "Prompt"
+#firstHisto = "DisplacedJet"
+firstHisto = "Prompt"
 
 
 for fName in fNames:
@@ -146,6 +146,7 @@ for fName in fNames:
         leg.AddEntry(scaled, "Scouting", "lp") # or lep or f
     
     for hist in hists_num:
+        if hist == "Scouting": continue
         leg.AddEntry(hists_num[hist], hist, "lp") # or lep or f
 #    leg.AddEntry(hists_num[firstHisto], firstHisto, "lp") # or lep or f
 #    leg.AddEntry(hists_num["Parking"], "Parking", "lp") # or lep or f
