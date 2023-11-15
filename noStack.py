@@ -16,6 +16,8 @@ fNames = [
     "plot_main/plot_main_year_xsect.root",
     "plot_main/plot_main_era_rate_2E34.root",
     "plot_main/plot_main_year_rate_2E34.root",
+#    "plot/plot_Prompt_era_eventSize.root",
+#    "plot/plot_Prompt_year_eventSize.root",
 ]
 
 for fName in fNames:
