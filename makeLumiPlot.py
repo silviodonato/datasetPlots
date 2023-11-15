@@ -10,9 +10,9 @@ tdrstyle.cd()
 
 golden = False
 golden = True
-f = 'lumi.csv'
+f = '2022.csv'
 if golden:
-    f = 'lumi_golden.csv'
+    f = f.replace(".csv", "_golden.csv")
 with open(f, 'r') as file:
     lines = file.readlines()
 
@@ -64,7 +64,8 @@ for ls in data_list:
     histo_lumiRec.Fill(lumiRec/23.31/1E4)
 
 c1 = ROOT.TCanvas("c1")
-outFile = "brilcal_PU.png"
+#outFile = "brilcal_PU.png"
+outFile = f.replace(".csv","_PU.png")
 if golden:
     outFile = outFile.replace(".png", "_golden.png")
 histo_PU.Draw()
@@ -78,5 +79,5 @@ outFile = outFile.replace("_recLumi", "_lumi")
 histo_lumiRec.Draw()
 c1.SaveAs(outFile)
 
-print("Mean pileup=%.1f, delivered lumi=%.2f, recorded lumi=%.f"%(histo_PU.GetMean(), histo_lumi.GetMean(), histo_lumiRec.GetMean()))
+print("Mean pileup=%.1f, delivered lumi=%.2f, recorded lumi=%.2f"%(histo_PU.GetMean(), histo_lumi.GetMean(), histo_lumiRec.GetMean()))
 
